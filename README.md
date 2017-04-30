@@ -5,7 +5,7 @@
 
 <!-- Update the VS Gallery link after you upload the VSIX-->
 Download this extension from the [VS Gallery](https://visualstudiogallery.msdn.microsoft.com/[GuidFromGallery])
-or get the [CI build](http://vsixgallery.com/extension/ArchersRally.Apprentice.Charles Willis.439b61e2-6855-404e-9e21-ffbbf61d44bf/).
+or get the [CI build](http://vsixgallery.com/extension/ArchersRally.Apprentice.Charles%20Willis.439b61e2-6855-404e-9e21-ffbbf61d44bf/).
 
 ---------------------------------------
 
