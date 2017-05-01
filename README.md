@@ -1,11 +1,10 @@
 # ArchersRally Build Apprentice
 
-<!-- Replace this badge with your own-->
-[![Build status](https://ci.appveyor.com/api/projects/status/hv6uyc059rqbc6fj?svg=true)](https://ci.appveyor.com/project/madskristensen/extensibilitytools)
+[![Build status](https://ci.appveyor.com/api/projects/status/2e4uwppscxw1cnb5?svg=true)](https://ci.appveyor.com/project/CharlesWillis3/archersrally-apprentice)
 
 <!-- Update the VS Gallery link after you upload the VSIX-->
-Download this extension from the [VS Gallery](https://visualstudiogallery.msdn.microsoft.com/[GuidFromGallery])
-or get the [CI build](http://vsixgallery.com/extension/ArchersRally.Apprentice.Charles%20Willis.439b61e2-6855-404e-9e21-ffbbf61d44bf/).
+<!-- Download this extension from the [VS Gallery](https://visualstudiogallery.msdn.microsoft.com/[GuidFromGallery]) -->
+Get the [CI build](http://vsixgallery.com/extension/ArchersRally.Apprentice.Charles%20Willis.439b61e2-6855-404e-9e21-ffbbf61d44bf/).
 
 ---------------------------------------
 
@@ -15,18 +14,14 @@ See the [change log](CHANGELOG.md) for changes and road map.
 
 ## Features
 
-- Feature 1
-- Feature 2
-  - Sub feature
+- Solution Imports Watcher
 
-### Feature 1
-Describe feature 1. Add screenshots/code samples etc.
+### Solution Imports Watcher
+Have a complex and super-custom build, with lots of special .props and .targets? Ever find yourself in Visual Studio, editing some of the build properties, and wishing VS would know it needs to re-load the solution? With Solution Imports Watcher, the first tool in the ArchersRally Apprentice extension, now VS will know!
 
-### Feature 2
-Describe feature 2. Add screenshots/code samples etc.
+With this feature enablesd, when you open a solution it will read all of the `<Import>` elements from each of the projects in the solution. It will then monitor each of the imported files for writes, and when any of the imports changes, VS will prompt you to re-load the solution.
 
-#### Sub feature
-Describe sub feature. Add screenshots/code samples etc.
+To enable this feature, go to `Tools -> Options -> ArchersRally -> Apprentice'.
 
 ## Contribute
 Check out the [contribution guidelines](CONTRIBUTING.md)
