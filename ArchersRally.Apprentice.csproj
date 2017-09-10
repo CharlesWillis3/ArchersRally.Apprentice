@@ -72,11 +72,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ApprenticePackage.cs" />
+    <Compile Include="Common\Constants.cs" />
     <Compile Include="Common\OptionsDialogPage.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Contract\IFeature.cs" />
     <Compile Include="ImportWatcher\Feature.cs" />
+    <Compile Include="ImportWatcher\ImportsHierarchyNode.cs" />
+    <Compile Include="ImportWatcher\ImportsHierarchyNodeManager.cs" />
     <Compile Include="ImportWatcher\ImportsMonitor.cs" />
     <Compile Include="ImportWatcher\LastWriteFileChangeMonitor.cs" />
     <Compile Include="ImportWatcher\Extensions.cs" />

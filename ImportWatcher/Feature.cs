@@ -20,19 +20,23 @@ namespace ArchersRally.Apprentice.ImportWatcher
     /// </summary>
     internal sealed class Feature : IFeature
     {
+        private readonly ApprenticePackage package;
         private readonly OptionsDialogPage optionsPage;
 
         private SolutionMonitor solutionMonitor;
         private ImportsMonitor importMonitor;
+        private ImportsHierarchyNodeManager hierarchyNodeManager;
         private LastWriteFileChangeMonitor changeMonitor;
         private IAsyncServiceProvider sp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Feature"/> class.
         /// </summary>
+        /// <param name="package">The package instance</param>
         /// <param name="optionsPage">The common options page</param>
-        public Feature(Common.OptionsDialogPage optionsPage)
+        public Feature(ApprenticePackage package, Common.OptionsDialogPage optionsPage)
         {
+            this.package = Requires.NotNull(package, nameof(package));
             this.optionsPage = Requires.NotNull(optionsPage, nameof(optionsPage));
             this.optionsPage.PropertyChanged += this.OptionsPage_PropertyChanged;
         }
@@ -58,11 +62,13 @@ namespace ArchersRally.Apprentice.ImportWatcher
         {
             this.solutionMonitor = new SolutionMonitor();
             this.importMonitor = new ImportsMonitor(this.solutionMonitor);
+            this.hierarchyNodeManager = new ImportsHierarchyNodeManager(this.package, this.importMonitor);
             this.changeMonitor = new LastWriteFileChangeMonitor(this.importMonitor);
 
             this.changeMonitor.FileChanged += this.ChangeMonitor_FileChanged;
 
             await this.changeMonitor.InitializeAsync(this.sp);
+            await this.hierarchyNodeManager.InitializeAsync(this.sp);
             await this.solutionMonitor.InitializeAsync(this.sp);
             this.solutionMonitor.Start();
 
@@ -77,10 +83,12 @@ namespace ArchersRally.Apprentice.ImportWatcher
             }
 
             this.changeMonitor?.Dispose();
+            this.hierarchyNodeManager?.Dispose();
             this.importMonitor?.Dispose();
             this.solutionMonitor?.Dispose();
 
             this.changeMonitor = null;
+            this.hierarchyNodeManager = null;
             this.importMonitor = null;
             this.solutionMonitor = null;
 
