@@ -18,7 +18,6 @@ namespace ArchersRally.Apprentice.ImportWatcher
     using IAsyncServiceProvider = Microsoft.VisualStudio.Shell.IAsyncServiceProvider;
     using IServiceProvider = Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
     using ISystemServiceProvider = System.IServiceProvider;
-    using Microsoft.VisualStudio.Imaging;
     using System.Collections.Concurrent;
 
     /// <summary>
@@ -27,6 +26,9 @@ namespace ArchersRally.Apprentice.ImportWatcher
     internal sealed class ImportsHierarchyNode : IVsProject, IVsHierarchy, IVsUIHierarchy
     {
         private static readonly Guid WatchedImportType = Guid.Parse("D98191F7-EB49-4784-8D3D-F7F61A1BE7FF");
+        private static readonly Guid ImageCatalogGuid = Guid.Parse("{ae27a6b0-e345-4288-96df-5eaf394ee369}");
+        private const int FolderInformation = 1296;
+
 
         private readonly Dictionary<int, object> rootPropertyMap;
         private readonly Dictionary<int, object> itemPropertyMap;
@@ -71,10 +73,10 @@ namespace ArchersRally.Apprentice.ImportWatcher
                 { (int)__VSHPROPID.VSHPROPID_TypeGuid, WatchedImportType },
                 { (int)__VSHPROPID.VSHPROPID_TypeName, nameof(WatchedImportType) },
                 { (int)__VSHPROPID8.VSHPROPID_SupportsIconMonikers, true },
-                { (int)__VSHPROPID8.VSHPROPID_IconMonikerGuid, KnownMonikers.FolderInformation.Guid },
-                { (int)__VSHPROPID8.VSHPROPID_IconMonikerId, KnownMonikers.FolderInformation.Id },
-                { (int)__VSHPROPID8.VSHPROPID_OpenFolderIconMonikerGuid, KnownMonikers.FolderInformation.Guid },
-                { (int)__VSHPROPID8.VSHPROPID_OpenFolderIconMonikerId, KnownMonikers.FolderInformation.Id }
+                { (int)__VSHPROPID8.VSHPROPID_IconMonikerGuid, ImageCatalogGuid },
+                { (int)__VSHPROPID8.VSHPROPID_IconMonikerId, FolderInformation },
+                { (int)__VSHPROPID8.VSHPROPID_OpenFolderIconMonikerGuid, ImageCatalogGuid },
+                { (int)__VSHPROPID8.VSHPROPID_OpenFolderIconMonikerId, FolderInformation }
             };
 
             this.itemPropertyMap = new Dictionary<int, object>
