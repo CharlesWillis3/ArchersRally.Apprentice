@@ -8,13 +8,10 @@ namespace ArchersRally.Apprentice.ImportWatcher
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
-    using System.Threading.Tasks;
     using EnvDTE;
     using EnvDTE80;
     using Microsoft;
-    using Microsoft.VisualStudio.Shell;
     using Microsoft.VisualStudio.Shell.Interop;
-    using Microsoft.VisualStudio.Threading;
     using IAsyncServiceProvider = Microsoft.VisualStudio.Shell.IAsyncServiceProvider;
     using Task = System.Threading.Tasks.Task;
 
@@ -24,6 +21,15 @@ namespace ArchersRally.Apprentice.ImportWatcher
     internal sealed class SolutionMonitor : IDisposable
     {
         private DTE2 dte;
+        private SolutionEvents solutionEvents;
+        private readonly ApprenticePackage package;
+        private readonly IAsyncServiceProvider asp;
+
+        public SolutionMonitor(ApprenticePackage package)
+        {
+            this.package = Requires.NotNull(package, nameof(package));
+            this.asp = Requires.NotNull((IAsyncServiceProvider)package, nameof(package));
+        }
 
         /// <summary>
         /// Raised when a solution is opened, or a project is added or removed to the current solution.
@@ -38,22 +44,29 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <summary>
         /// Initialize the <see cref="SolutionMonitor"/> class.
         /// </summary>
-        /// <param name="sp">The AsyncServiceProvider</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation</returns>
-        public async Task InitializeAsync(IAsyncServiceProvider sp)
+        public async Task InitializeAsync()
         {
-            this.dte = (DTE2)await sp.GetServiceAsync(typeof(SDTE));
+            Trace.TraceInformation($"{nameof(SolutionMonitor)}.{nameof(SolutionMonitor.InitializeAsync)}");
 
-            this.dte.Events.SolutionEvents.Opened += this.SolutionEvents_Opened;
-            this.dte.Events.SolutionEvents.ProjectAdded += this.SolutionEvents_ProjectAdded;
-            this.dte.Events.SolutionEvents.ProjectRemoved += this.SolutionEvents_ProjectRemoved;
-            this.dte.Events.SolutionEvents.BeforeClosing += this.SolutionEvents_BeforeClosing;
+            this.dte = (DTE2)await this.asp.GetServiceAsync(typeof(SDTE));
+
+            // SolutionEvents can be garbage-collected when you least want it to happen. Pin it here with a member variable.
+            this.solutionEvents = this.dte.Events.SolutionEvents;
+            this.solutionEvents.Opened += this.SolutionEvents_Opened;
+            this.solutionEvents.ProjectAdded += this.SolutionEvents_ProjectAdded;
+            this.solutionEvents.ProjectRemoved += this.SolutionEvents_ProjectRemoved;
+            this.solutionEvents.BeforeClosing += this.SolutionEvents_BeforeClosing;
         }
 
         /// <summary>
         /// Start the Solution Monitor.
         /// </summary>
-        public void Start() => this.RaiseSolutionChanged();
+        public void Start()
+        {
+            Trace.TraceInformation($"{nameof(SolutionMonitor)}.{nameof(SolutionMonitor.Start)}");
+            this.RaiseSolutionChanged();
+        }
 
         /// <inheritdoc />
         public void Dispose()
@@ -66,25 +79,25 @@ namespace ArchersRally.Apprentice.ImportWatcher
 
         private void SolutionEvents_BeforeClosing()
         {
-            Trace.TraceInformation(nameof(this.SolutionEvents_BeforeClosing));
+            Trace.TraceInformation($"{nameof(SolutionMonitor)}.{nameof(this.SolutionEvents_BeforeClosing)}");
             this.SolutionClosing.Raise(this, EventArgs.Empty);
         }
 
         private void SolutionEvents_ProjectRemoved(EnvDTE.Project project)
         {
-            Trace.TraceInformation(nameof(this.SolutionEvents_ProjectRemoved));
+            Trace.TraceInformation($"{nameof(SolutionMonitor)}.{nameof(this.SolutionEvents_ProjectRemoved)}");
             this.RaiseSolutionChanged();
         }
 
         private void SolutionEvents_ProjectAdded(EnvDTE.Project project)
         {
-            Trace.TraceInformation(nameof(this.SolutionEvents_ProjectAdded));
+            Trace.TraceInformation($"{nameof(SolutionMonitor)}.{nameof(this.SolutionEvents_ProjectAdded)}");
             this.RaiseSolutionChanged();
         }
 
         private void SolutionEvents_Opened()
         {
-            Trace.TraceInformation(nameof(this.SolutionEvents_Opened));
+            Trace.TraceInformation($"{nameof(SolutionMonitor)}.{nameof(this.SolutionEvents_Opened)}");
             this.RaiseSolutionChanged();
         }
 

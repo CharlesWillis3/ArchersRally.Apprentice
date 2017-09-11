@@ -9,7 +9,6 @@ namespace ArchersRally.Apprentice.ImportWatcher
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Text;
     using System.Threading.Tasks;
     using Microsoft;
     using Microsoft.VisualStudio;
@@ -18,68 +17,94 @@ namespace ArchersRally.Apprentice.ImportWatcher
     using Microsoft.VisualStudio.Shell.Interop;
     using IAsyncServiceProvider = Microsoft.VisualStudio.Shell.IAsyncServiceProvider;
     using IServiceProvider = Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
-    using Task = System.Threading.Tasks.Task;
+    using ISystemServiceProvider = System.IServiceProvider;
+    using Microsoft.VisualStudio.Imaging;
+    using System.Collections.Concurrent;
 
     /// <summary>
     /// A virtual hierarchy of paths
     /// </summary>
-    public class ImportsHierarchyNode : IVsProject, IVsHierarchy, IVsUIHierarchy
+    internal sealed class ImportsHierarchyNode : IVsProject, IVsHierarchy, IVsUIHierarchy
     {
         private static readonly Guid WatchedImportType = Guid.Parse("D98191F7-EB49-4784-8D3D-F7F61A1BE7FF");
 
-        private readonly Dictionary<__VSHPROPID, object> rootPropertyMap;
-        private readonly Dictionary<__VSHPROPID, object> itemPropertyMap;
-        private readonly Dictionary<uint, string> idPathMap;
+        private readonly Dictionary<int, object> rootPropertyMap;
+        private readonly Dictionary<int, object> itemPropertyMap;
+        private readonly Dictionary<uint, IVsHierarchyEvents> cookieSinkMap;
         private readonly IAsyncServiceProvider asp;
         private readonly IServiceProvider sp;
+        private readonly ISystemServiceProvider ssp;
+
+        private ConcurrentDictionary<uint, string> idPathMap;
 
         // Reserve 0 for comparisons to default
         private uint firstItemId = 1;
         private uint lastItemId;
+        private uint lastEventSinkCookie = 0;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImportsHierarchyNode"/> class.
         /// </summary>
         /// <param name="package">The root package</param>
-        /// <param name="importsPaths">The paths of the imports being monitered</param>
-        public ImportsHierarchyNode(ApprenticePackage package, IEnumerable<string> importsPaths)
+        public ImportsHierarchyNode(ApprenticePackage package)
         {
             Requires.NotNull(package, nameof(package));
-            Requires.NotNull(importsPaths, nameof(importsPaths));
+            this.asp = package;
+            this.sp = package;
+            this.ssp = package;
 
             this.lastItemId = this.firstItemId;
-            this.asp = (IAsyncServiceProvider)package;
-            this.sp = (IServiceProvider)package;
-            this.idPathMap = importsPaths.Distinct().ToDictionary(p => this.lastItemId++);
 
-            this.rootPropertyMap = new Dictionary<__VSHPROPID, object>
+            this.rootPropertyMap = new Dictionary<int, object>
             {
-                { __VSHPROPID.VSHPROPID_Caption, "Watched Imports" },
-                { __VSHPROPID.VSHPROPID_Expandable, true },
-                { __VSHPROPID.VSHPROPID_ExpandByDefault, true },
-                { __VSHPROPID.VSHPROPID_Expanded, true },
-                { __VSHPROPID.VSHPROPID_FirstChild, this.firstItemId },
-                { __VSHPROPID.VSHPROPID_HandlesOwnReload, true },
-                { __VSHPROPID.VSHPROPID_IconIndex, 2 },
-                { __VSHPROPID.VSHPROPID_Name, "Watched Imports Name" },
-                { __VSHPROPID.VSHPROPID_OpenFolderIconIndex, 3 },
-                { __VSHPROPID.VSHPROPID_Parent, VSConstants.VSITEMID.Nil },
-                { __VSHPROPID.VSHPROPID_StateIconIndex, VsStateIcon.STATEICON_READONLY },
-                { __VSHPROPID.VSHPROPID_TypeGuid, WatchedImportType },
-                { __VSHPROPID.VSHPROPID_TypeName, nameof(WatchedImportType) }
+                { (int)__VSHPROPID.VSHPROPID_Caption, "Watched Imports" },
+                { (int)__VSHPROPID.VSHPROPID_Expandable, true },
+                { (int)__VSHPROPID.VSHPROPID_ExpandByDefault, false },
+                { (int)__VSHPROPID.VSHPROPID_Expanded, false },
+                { (int)__VSHPROPID.VSHPROPID_FirstChild, this.firstItemId },
+                { (int)__VSHPROPID.VSHPROPID_HandlesOwnReload, true },
+                { (int)__VSHPROPID.VSHPROPID_IconIndex, 2 },
+                { (int)__VSHPROPID.VSHPROPID_Name, "Watched Imports Name" },
+                { (int)__VSHPROPID.VSHPROPID_OpenFolderIconIndex, 3 },
+                { (int)__VSHPROPID.VSHPROPID_Parent, VSConstants.VSITEMID.Nil },
+                { (int)__VSHPROPID.VSHPROPID_StateIconIndex, VsStateIcon.STATEICON_READONLY },
+                { (int)__VSHPROPID.VSHPROPID_TypeGuid, WatchedImportType },
+                { (int)__VSHPROPID.VSHPROPID_TypeName, nameof(WatchedImportType) },
+                { (int)__VSHPROPID8.VSHPROPID_SupportsIconMonikers, true },
+                { (int)__VSHPROPID8.VSHPROPID_IconMonikerGuid, KnownMonikers.FolderInformation.Guid },
+                { (int)__VSHPROPID8.VSHPROPID_IconMonikerId, KnownMonikers.FolderInformation.Id },
+                { (int)__VSHPROPID8.VSHPROPID_OpenFolderIconMonikerGuid, KnownMonikers.FolderInformation.Guid },
+                { (int)__VSHPROPID8.VSHPROPID_OpenFolderIconMonikerId, KnownMonikers.FolderInformation.Id }
             };
 
-            this.itemPropertyMap = new Dictionary<__VSHPROPID, object>
+            this.itemPropertyMap = new Dictionary<int, object>
             {
-                { __VSHPROPID.VSHPROPID_Expandable, false },
-                { __VSHPROPID.VSHPROPID_ExpandByDefault, false },
-                { __VSHPROPID.VSHPROPID_Expanded, false },
-                { __VSHPROPID.VSHPROPID_HandlesOwnReload, true },
-                { __VSHPROPID.VSHPROPID_Parent, VSConstants.VSITEMID.Root },
-                { __VSHPROPID.VSHPROPID_StateIconIndex, VsStateIcon.STATEICON_BLANK },
-                { __VSHPROPID.VSHPROPID_TypeGuid, WatchedImportType },
-                { __VSHPROPID.VSHPROPID_TypeName, nameof(WatchedImportType) }
+                { (int)__VSHPROPID.VSHPROPID_Expandable, false },
+                { (int)__VSHPROPID.VSHPROPID_ExpandByDefault, false },
+                { (int)__VSHPROPID.VSHPROPID_Expanded, false },
+                { (int)__VSHPROPID.VSHPROPID_HandlesOwnReload, true },
+                { (int)__VSHPROPID.VSHPROPID_Parent, VSConstants.VSITEMID.Root },
+                { (int)__VSHPROPID.VSHPROPID_StateIconIndex, VsStateIcon.STATEICON_BLANK },
+                { (int)__VSHPROPID.VSHPROPID_TypeGuid, WatchedImportType },
+                { (int)__VSHPROPID.VSHPROPID_TypeName, nameof(WatchedImportType) },
+                { (int)__VSHPROPID5.VSHPROPID_ProvisionalViewingStatus, __VSPROVISIONALVIEWINGSTATUS.PVS_Enabled }
             };
+
+            this.idPathMap = new ConcurrentDictionary<uint, string>();
+            this.cookieSinkMap = new Dictionary<uint, IVsHierarchyEvents>();
+        }
+
+        /// <summary>
+        /// Replace the items in the virtual Watched Imports node.
+        /// </summary>
+        /// <param name="importsPaths"></param>
+        public void UpdateItems(IEnumerable<string> importsPaths)
+        {
+            Trace.TraceInformation($"{nameof(ImportsHierarchyNode)}.{nameof(ImportsHierarchyNode.UpdateItems)}: Count={importsPaths.Count()}");
+
+            this.lastItemId = this.firstItemId;
+            this.idPathMap = new ConcurrentDictionary<uint, string>(importsPaths.Distinct().ToDictionary(p => this.lastItemId++));
+            this.AdviseInvalidateItems();
         }
 
         /// <inheritdoc/>
@@ -104,11 +129,16 @@ namespace ArchersRally.Apprentice.ImportWatcher
         }
 
         /// <inheritdoc/>
-        int IVsProject.GetMkDocument(uint itemid, out string pbstrMkDocument) => this.idPathMap.TryGetValue(itemid, out pbstrMkDocument) ? VSConstants.S_OK : VSConstants.E_INVALIDARG;
+        int IVsProject.GetMkDocument(uint itemid, out string pbstrMkDocument)
+        {
+            return this.idPathMap.TryGetValue(itemid, out pbstrMkDocument) ? VSConstants.S_OK : VSConstants.E_INVALIDARG;
+        }
 
         /// <inheritdoc/>
         int IVsProject.OpenItem(uint itemid, ref Guid rguidLogicalView, IntPtr punkDocDataExisting, out IVsWindowFrame ppWindowFrame)
         {
+            Trace.TraceInformation($"{nameof(IVsProject)}.{nameof(IVsProject.OpenItem)}");
+
             Guid localLogicView = rguidLogicalView;
             IVsWindowFrame localVsWindowFrame = null;
 
@@ -143,8 +173,10 @@ namespace ArchersRally.Apprentice.ImportWatcher
         }
 
         /// <inheritdoc/>
-        int IVsProject.GetItemContext(uint itemid, out Microsoft.VisualStudio.OLE.Interop.IServiceProvider ppSP)
+        int IVsProject.GetItemContext(uint itemid, out IServiceProvider ppSP)
         {
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsProject.GetItemContext)}");
+
             if (this.idPathMap.ContainsKey(itemid))
             {
                 ppSP = this.sp;
@@ -160,6 +192,8 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsProject.GenerateUniqueItemName(uint itemidLoc, string pszExt, string pszSuggestedRoot, out string pbstrItemName)
         {
+            Trace.TraceInformation($"{nameof(IVsProject)}.{nameof(IVsProject.GenerateUniqueItemName)}");
+
             pbstrItemName = null;
             return VSConstants.E_NOTIMPL;
         }
@@ -167,18 +201,21 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsProject.AddItem(uint itemidLoc, VSADDITEMOPERATION dwAddItemOperation, string pszItemName, uint cFilesToOpen, string[] rgpszFilesToOpen, IntPtr hwndDlgOwner, VSADDRESULT[] pResult)
         {
+            Trace.TraceInformation($"{nameof(IVsProject)}.{nameof(IVsProject.AddItem)}");
             return VSConstants.E_NOTIMPL;
         }
 
         /// <inheritdoc/>
-        int IVsHierarchy.SetSite(Microsoft.VisualStudio.OLE.Interop.IServiceProvider psp)
+        int IVsHierarchy.SetSite(IServiceProvider psp)
         {
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.SetSite)}");
             return VSConstants.E_NOTIMPL;
         }
 
         /// <inheritdoc/>
         int IVsHierarchy.GetSite(out Microsoft.VisualStudio.OLE.Interop.IServiceProvider ppSP)
         {
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.GetSite)}");
             ppSP = this.sp;
             return VSConstants.S_OK;
         }
@@ -186,6 +223,7 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsHierarchy.QueryClose(out int pfCanClose)
         {
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.QueryClose)}");
             pfCanClose = Common.Constants.TRUE;
             return VSConstants.S_OK;
         }
@@ -193,13 +231,20 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsHierarchy.Close()
         {
-            Trace.TraceInformation("IVsHierarchy Close called");
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.Close)}");
             return VSConstants.S_OK;
         }
 
         /// <inheritdoc/>
         int IVsHierarchy.GetGuidProperty(uint itemid, int propid, out Guid pguid)
         {
+            var result = ((IVsHierarchy)this).GetProperty(itemid, propid, out object property);
+            if (property != null)
+            {
+                pguid = (Guid)property;
+                return result;
+            }
+
             pguid = Guid.Empty;
             return VSConstants.E_NOTIMPL;
         }
@@ -207,6 +252,7 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsHierarchy.SetGuidProperty(uint itemid, int propid, ref Guid rguid)
         {
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.SetGuidProperty)}::ItemId={itemid}, PropId={propid}, Guid={rguid}");
             return VSConstants.E_NOTIMPL;
         }
 
@@ -216,7 +262,14 @@ namespace ArchersRally.Apprentice.ImportWatcher
             switch (itemid)
             {
                 case (uint)VSConstants.VSITEMID.Root:
-                    return this.rootPropertyMap.TryGetValue((__VSHPROPID)propid, out pvar) ? VSConstants.S_OK : VSConstants.E_INVALIDARG;
+                    switch (propid)
+                    {
+                        case (int)__VSHPROPID.VSHPROPID_FirstChild:
+                            pvar = this.idPathMap.Any() ? this.firstItemId : (uint)VSConstants.VSITEMID.Nil;
+                            return VSConstants.S_OK;
+                        default:
+                            return this.rootPropertyMap.TryGetValue(propid, out pvar) ? VSConstants.S_OK : VSConstants.E_INVALIDARG;
+                    }
                 default:
                     switch (propid)
                     {
@@ -233,10 +286,15 @@ namespace ArchersRally.Apprentice.ImportWatcher
                             pvar = nextItemId < this.lastItemId ? nextItemId : (uint)VSConstants.VSITEMID.Nil;
                             return VSConstants.S_OK;
                         case (int)__VSHPROPID.VSHPROPID_BrowseObject:
-                            pvar = new ItemProperties { FullPath = this.idPathMap[itemid] };
+                            string fullPath = this.idPathMap[itemid];
+                            pvar = new ImportItemProperties
+                            {
+                                FullPath = fullPath,
+                                LastWriteTime = File.GetLastWriteTime(fullPath)
+                            };
                             return VSConstants.S_OK;
                         default:
-                            return this.itemPropertyMap.TryGetValue((__VSHPROPID)propid, out pvar) ? VSConstants.S_OK : VSConstants.E_INVALIDARG;
+                            return this.itemPropertyMap.TryGetValue(propid, out pvar) ? VSConstants.S_OK : VSConstants.E_INVALIDARG;
                     }
             }
         }
@@ -244,6 +302,7 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsHierarchy.SetProperty(uint itemid, int propid, object var)
         {
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.SetProperty)}::ItemId={itemid}, PropId={propid}, Var={var}");
             return VSConstants.E_NOTIMPL;
         }
 
@@ -270,6 +329,8 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsHierarchy.ParseCanonicalName(string pszName, out uint pitemid)
         {
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.ParseCanonicalName)}");
+
             var idPathPair = this.idPathMap.Where(kvp => kvp.Value.Equals(pszName, StringComparison.OrdinalIgnoreCase)).SingleOrDefault();
             if (idPathPair.Value != null)
             {
@@ -277,7 +338,7 @@ namespace ArchersRally.Apprentice.ImportWatcher
                 return VSConstants.S_OK;
             }
 
-            Trace.TraceInformation($"{this.GetType().Name}.{nameof(IVsHierarchy.ParseCanonicalName)}: Document not found {pszName}");
+            Trace.TraceInformation($"{nameof(IVsHierarchy)}.{nameof(IVsHierarchy.ParseCanonicalName)}:: Document not found {pszName}");
             pitemid = 0;
             return VSConstants.E_INVALIDARG;
         }
@@ -285,14 +346,16 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsHierarchy.AdviseHierarchyEvents(IVsHierarchyEvents pEventSink, out uint pdwCookie)
         {
-            pdwCookie = 0;
+            pdwCookie = ++lastEventSinkCookie;
+            this.cookieSinkMap[pdwCookie] = pEventSink;
             return VSConstants.S_OK;
         }
 
         /// <inheritdoc/>
         int IVsHierarchy.UnadviseHierarchyEvents(uint dwCookie)
         {
-            return VSConstants.S_FALSE;
+            this.cookieSinkMap.Remove(dwCookie);
+            return VSConstants.S_OK;
         }
 
         /// <inheritdoc/>
@@ -415,9 +478,12 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc/>
         int IVsUIHierarchy.Unused4() => throw new NotImplementedException();
 
-        private class ItemProperties
+        private void AdviseInvalidateItems()
         {
-            public string FullPath { get; set; }
+            foreach (var sink in this.cookieSinkMap)
+            {
+                sink.Value.OnInvalidateItems((uint)VSConstants.VSITEMID.Root);
+            }
         }
     }
 }

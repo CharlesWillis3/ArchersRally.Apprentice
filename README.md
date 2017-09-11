@@ -21,6 +21,8 @@ Have a complex and super-custom build, with lots of special .props and .targets?
 
 With this feature enablesd, when you open a solution it will read all of the `<Import>` elements from each of the projects in the solution. It will then monitor each of the imported files for writes, and when any of the imports changes, VS will prompt you to re-load the solution.
 
+A list of all the files being watched can be found in the Watched Imports virtual folder in Solution Explorer.
+
 To enable this feature, go to `Tools -> Options -> ArchersRally -> Apprentice'.
 
 ## Contribute

@@ -27,7 +27,6 @@ namespace ArchersRally.Apprentice.ImportWatcher
         private ImportsMonitor importMonitor;
         private ImportsHierarchyNodeManager hierarchyNodeManager;
         private LastWriteFileChangeMonitor changeMonitor;
-        private IAsyncServiceProvider sp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Feature"/> class.
@@ -42,10 +41,8 @@ namespace ArchersRally.Apprentice.ImportWatcher
         }
 
         /// <inheritdoc />
-        public async Task InitializeAsync(IAsyncServiceProvider sp)
+        public async Task InitializeAsync()
         {
-            this.sp = Requires.NotNull(sp, nameof(sp));
-
             if (this.optionsPage.IsEnabled)
             {
                 await this.StartAsync();
@@ -60,16 +57,15 @@ namespace ArchersRally.Apprentice.ImportWatcher
 
         private async Task StartAsync()
         {
-            this.solutionMonitor = new SolutionMonitor();
+            this.solutionMonitor = new SolutionMonitor(this.package);
             this.importMonitor = new ImportsMonitor(this.solutionMonitor);
-            this.hierarchyNodeManager = new ImportsHierarchyNodeManager(this.package, this.importMonitor);
-            this.changeMonitor = new LastWriteFileChangeMonitor(this.importMonitor);
+            this.hierarchyNodeManager = new ImportsHierarchyNodeManager(this.package, this.importMonitor, this.solutionMonitor);
+            this.changeMonitor = new LastWriteFileChangeMonitor(this.package, this.importMonitor);
 
             this.changeMonitor.FileChanged += this.ChangeMonitor_FileChanged;
 
-            await this.changeMonitor.InitializeAsync(this.sp);
-            await this.hierarchyNodeManager.InitializeAsync(this.sp);
-            await this.solutionMonitor.InitializeAsync(this.sp);
+            await this.changeMonitor.InitializeAsync();
+            await this.solutionMonitor.InitializeAsync();
             this.solutionMonitor.Start();
 
             Trace.TraceInformation("ImportWatcher Started");

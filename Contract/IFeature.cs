@@ -16,8 +16,7 @@ namespace ArchersRally.Apprentice.Contract
         /// <summary>
         /// Initialize the feature.
         /// </summary>
-        /// <param name="sp">The AsyncServiceProvider</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation</returns>
-        Task InitializeAsync(IAsyncServiceProvider sp);
+        Task InitializeAsync();
     }
 }

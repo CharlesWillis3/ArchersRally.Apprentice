@@ -41,7 +41,7 @@ namespace ArchersRally.Apprentice
             var optionsPage = (Common.OptionsDialogPage)this.GetDialogPage(typeof(Common.OptionsDialogPage));
 
             this.importWatcher = new ImportWatcher.Feature(this, optionsPage);
-            await this.importWatcher.InitializeAsync(this);
+            await this.importWatcher.InitializeAsync();
 
             await base.InitializeAsync(cancellationToken, progress);
         }

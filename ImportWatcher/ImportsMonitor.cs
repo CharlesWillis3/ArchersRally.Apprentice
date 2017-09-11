@@ -47,7 +47,7 @@ namespace ArchersRally.Apprentice.ImportWatcher
 
         private void SolutionMonitor_SolutionChanged(object sender, SolutionMonitor.SolutionChangedEventArgs e)
         {
-            Trace.TraceInformation(nameof(this.SolutionMonitor_SolutionChanged));
+            Trace.TraceInformation($"{nameof(ImportsMonitor)}.{nameof(ImportsMonitor.SolutionMonitor_SolutionChanged)}");
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
             if (e.SolutionPath == null)
@@ -71,8 +71,9 @@ namespace ArchersRally.Apprentice.ImportWatcher
 
         private void SolutionMonitor_SolutionClosing(object sender, EventArgs e)
         {
-            Trace.TraceInformation(nameof(this.SolutionMonitor_SolutionClosing));
+            Trace.TraceInformation($"{nameof(ImportsMonitor)}.{nameof(ImportsMonitor.SolutionMonitor_SolutionClosing)}");
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+            this.previousImportPaths = Enumerable.Empty<string>();
             this.ImportsChanged.Raise(this, new ImportsChangedEventArgs());
         }
 

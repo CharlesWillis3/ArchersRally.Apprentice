@@ -7,17 +7,19 @@ namespace ArchersRally.Apprentice.ImportWatcher
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
-    using System.Threading.Tasks;
     using Microsoft;
     using Microsoft.VisualStudio;
     using Microsoft.VisualStudio.Shell.Interop;
     using IAsyncServiceProvider = Microsoft.VisualStudio.Shell.IAsyncServiceProvider;
+    using Task = System.Threading.Tasks.Task;
 
     /// <summary>
     /// Monitors files for changes to the last write attribute.
     /// </summary>
     internal class LastWriteFileChangeMonitor : IVsFileChangeEvents, IDisposable
     {
+        private readonly ApprenticePackage package;
+        private readonly IAsyncServiceProvider asp;
         private readonly ImportsMonitor importsMonitor;
         private readonly List<uint> cookies;
 
@@ -27,12 +29,14 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <summary>
         /// Initializes a new instance of the <see cref="LastWriteFileChangeMonitor"/> class.
         /// </summary>
+        /// <param name="package"></param>
         /// <param name="importsMonitor">An instance of <see cref="ImportsMonitor"/> that reports files to monitor</param>
-        public LastWriteFileChangeMonitor(ImportsMonitor importsMonitor)
+        public LastWriteFileChangeMonitor(ApprenticePackage package, ImportsMonitor importsMonitor)
         {
+            this.package = Requires.NotNull(package, nameof(package));
+            this.asp = Requires.NotNull((IAsyncServiceProvider)package, nameof(package));
             this.importsMonitor = Requires.NotNull(importsMonitor, nameof(importsMonitor));
             this.cookies = new List<uint>();
-
             this.importsMonitor.ImportsChanged += this.ImportsMonitor_ImportsChanged;
         }
 
@@ -44,12 +48,10 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <summary>
         /// Initialize the <see cref="LastWriteFileChangeMonitor"/>.
         /// </summary>
-        /// <param name="sp">The service provider</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation</returns>
-        public async Task InitializeAsync(IAsyncServiceProvider sp)
+        public async Task InitializeAsync()
         {
-            Requires.NotNull(sp, nameof(sp));
-            this.fileChange = (IVsFileChangeEx)await sp.GetServiceAsync(typeof(SVsFileChangeEx));
+            this.fileChange = (IVsFileChangeEx)await this.asp.GetServiceAsync(typeof(SVsFileChangeEx));
         }
 
         /// <inheritdoc />
@@ -62,6 +64,7 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <inheritdoc />
         int IVsFileChangeEvents.FilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange)
         {
+            Trace.TraceInformation($"{nameof(LastWriteFileChangeMonitor)}.{nameof(IVsFileChangeEvents.FilesChanged)}");
             this.FileChanged.Raise(this, new FileChangedEventArgs(this.currentSolutionPath));
             return VSConstants.S_OK;
         }
@@ -70,12 +73,13 @@ namespace ArchersRally.Apprentice.ImportWatcher
         /// <exception cref="NotImplementedException">This method is not implemented.</exception>
         int IVsFileChangeEvents.DirectoryChanged(string pszDirectory)
         {
-            throw new NotImplementedException();
+            Trace.TraceInformation($"{nameof(LastWriteFileChangeMonitor)}.{nameof(IVsFileChangeEvents.DirectoryChanged)}");
+            return VSConstants.S_OK;
         }
 
         private void ImportsMonitor_ImportsChanged(object sender, ImportsMonitor.ImportsChangedEventArgs e)
         {
-            Trace.TraceInformation(nameof(this.ImportsMonitor_ImportsChanged));
+            Trace.TraceInformation($"{nameof(LastWriteFileChangeMonitor)}.{nameof(LastWriteFileChangeMonitor.ImportsMonitor_ImportsChanged)}");
             this.UnadviseAllAndClear(this.fileChange, this.cookies);
 
             if (e.SolutionPath == null)
@@ -95,6 +99,8 @@ namespace ArchersRally.Apprentice.ImportWatcher
 
         private void UnadviseAllAndClear(IVsFileChangeEx fileChange, IList<uint> cookies)
         {
+            Trace.TraceInformation($"{nameof(LastWriteFileChangeMonitor)}.{nameof(LastWriteFileChangeMonitor.UnadviseAllAndClear)}");
+
             foreach (var c in cookies)
             {
                 ErrorHandler.ThrowOnFailure(
