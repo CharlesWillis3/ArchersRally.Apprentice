@@ -19,7 +19,7 @@ See the [change log](CHANGELOG.md) for changes and road map.
 ### Solution Imports Watcher
 Have a complex and super-custom build, with lots of special .props and .targets? Ever find yourself in Visual Studio, editing some of the build properties, and wishing VS would know it needs to re-load the solution? With Solution Imports Watcher, the first tool in the ArchersRally Apprentice extension, now VS will know!
 
-With this feature enablesd, when you open a solution it will read all of the `<Import>` elements from each of the projects in the solution. It will then monitor each of the imported files for writes, and when any of the imports changes, VS will prompt you to re-load the solution.
+With this feature enabled, when you open a solution it will read all of the `<Import>` elements from each of the projects in the solution. It will then monitor each of the imported files for writes, and when any of the imports changes, VS will prompt you to re-load the solution.
 
 A list of all the files being watched can be found in the Watched Imports virtual folder in Solution Explorer.
 
